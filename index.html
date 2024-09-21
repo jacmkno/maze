@@ -1,37 +1,44 @@
-
-<!--
-https://websim.ai/c/6VtVN0iSDlDgV3BIR 
-Continue development on websim on new prompt with:
-- See if you can start a web app from this code, leave the code as is... It already works.
-
-Interesting prompts:
-1. Place holes in the floor that you must jump to get over.   Also oscillating orbs of light in the path.
-2. Now, the holes must be full of lethal lava.   The orbs must have different colors and they have to follow you very slowly. 
-
-Creating an Orb:
-https://chatgpt.com/c/66ebd04b-91c8-8005-be45-a9c56f4aa07c
--->
-<html>
-<head>
-    <title>3D Labyrinth Explorer</title>
-    <style>
-        body { margin: 0; overflow: hidden; font-family: Arial, sans-serif; }
-        canvas { display: block; }
-        #menu, #instructions {
-            position: absolute; background: rgba(0,0,0,0.7); color: white;
-            padding: 10px; border-radius: 5px;
-        }
-        #menu { top: 10px; left: 10px; }
-        #instructions { bottom: 10px; left: 10px; }
-        button {
-            margin: 5px; padding: 5px 10px; background: #4CAF50; color: white;
-            border: none; border-radius: 3px; cursor: pointer;
-        }
-        button:hover { background: #45a049; }
-    </style>
-</head>
-<body>
-    <div id="menu" onclick="event.stopImmediatePropagation()">
+<html><head><base href="https://example.com"><title>3D Labyrinth Explorer</title><style>
+    body { 
+        margin: 0; 
+        overflow: hidden; 
+        font-family: Arial, sans-serif; 
+    }
+    canvas { 
+        display: block; 
+    }
+    #menu {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        background: rgba(0,0,0,0.7);
+        color: white;
+        padding: 10px;
+        border-radius: 5px;
+    }
+    button {
+        margin: 5px;
+        padding: 5px 10px;
+        background: #4CAF50;
+        color: white;
+        border: none;
+        border-radius: 3px;
+        cursor: pointer;
+    }
+    button:hover {
+        background: #45a049;
+    }
+    #instructions {
+        position: absolute;
+        bottom: 10px;
+        left: 10px;
+        background: rgba(0,0,0,0.7);
+        color: white;
+        padding: 10px;
+        border-radius: 5px;
+    }
+</style></head><body>
+    <div id="menu">
         <button id="generateBtn">Generate New Labyrinth</button>
         <button id="saveBtn">Save Labyrinth</button>
         <button id="loadBtn">Load Labyrinth</button>
@@ -46,441 +53,492 @@ https://chatgpt.com/c/66ebd04b-91c8-8005-be45-a9c56f4aa07c
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/PointerLockControls.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cannon.js/0.6.2/cannon.min.js"></script>
     <script>
-        class Config {
-            static CELL_SIZE = 10;
-            static WALL_HEIGHT = 5;
-            static LABYRINTH_SIZE = 20;
-            static WALK_SPEED = 150;
-            static RUN_SPEED = 300;
-            static JUMP_HEIGHT = 20;
-            static GRAVITY = 30;
-            static PLAYER_HEIGHT = 2;
-            static PLAYER_RADIUS = 1.1;
-            static TIME_STEP = 1 / 60;
-        }
+        let scene, camera, renderer, controls, labyrinth, player;
+        let world, playerBody, floorBody, wallBodies = [];
+        const CELL_SIZE = 10, WALL_HEIGHT = 5, LABYRINTH_SIZE = 20;
+        const WALK_SPEED = 150, RUN_SPEED = 300, JUMP_HEIGHT = 20, GRAVITY = 30;
+        const PLAYER_HEIGHT = 2, PLAYER_RADIUS = 1.1, COLLISION_MARGIN = 0.3;
+        let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false, sprint = false, canJump = false, collisionEnabled = true;
+        let prevTime = performance.now(), velocity = new THREE.Vector3(), direction = new THREE.Vector3();
+        const timeStep = 1 / 60;
+        let matrix;
 
-        class Game {
-            constructor() {
-                this.collisionEnabled = true;
-                this.setupScene();
-                this.setupPhysics();
-                this.labyrinth = new Labyrinth(this);
-                this.player = new Player(this);
-                this.setupEventListeners();
-                this.player.resetPosition();
-                this.animate();
-                window.addEventListener('resize', this.onWindowResize.bind(this));
-            }
-
-            setupScene() {
-                this.scene = new THREE.Scene();
-                this.scene.fog = new THREE.Fog(0x87CEEB, 0, 500);
-                this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-                this.renderer = new THREE.WebGLRenderer({ antialias: true });
-                this.renderer.setSize(window.innerWidth, window.innerHeight);
-                this.renderer.setClearColor(0x87CEEB);
-                this.renderer.shadowMap.enabled = true;
-                document.body.appendChild(this.renderer.domElement);
-
-                const light = new THREE.DirectionalLight(0xffffff, 1);
-                light.position.set(50, 100, 50);
-                light.castShadow = true;
-                this.scene.add(light);
-                this.scene.add(new THREE.AmbientLight(0x404040));
-
-                this.controls = new THREE.PointerLockControls(this.camera, document.body);
-                this.scene.add(this.controls.getObject());
-            }
-
-            setupPhysics() {
-                this.world = new CANNON.World();
-                this.world.gravity.set(0, -Config.GRAVITY, 0);
-                this.world.broadphase = new CANNON.NaiveBroadphase();
-
-                const groundMaterial = new CANNON.Material('groundMaterial');
-                const playerMaterial = new CANNON.Material('playerMaterial');
-                const wallMaterial = new CANNON.Material('wallMaterial');
-
-                this.world.addContactMaterial(new CANNON.ContactMaterial(groundMaterial, playerMaterial, { friction: 0.8, restitution: 0.3 }));
-                this.world.addContactMaterial(new CANNON.ContactMaterial(wallMaterial, playerMaterial, { friction: 0.8, restitution: 0.3 }));
-            }
-
-            setupEventListeners() {
-                document.addEventListener('keydown', this.player.onKeyDown.bind(this.player));
-                document.addEventListener('keyup', this.player.onKeyUp.bind(this.player));
-                document.addEventListener('click', () => this.controls.lock());
-                this.controls.addEventListener('lock', () => document.getElementById('instructions').style.display = 'none');
-                this.controls.addEventListener('unlock', () => document.getElementById('instructions').style.display = 'block');
-                document.getElementById('generateBtn').addEventListener('click', () => this.labyrinth.draw());
-                document.getElementById('saveBtn').addEventListener('click', () => this.labyrinth.save());
-                document.getElementById('loadBtn').addEventListener('click', () => document.getElementById('fileInput').click());
-                document.getElementById('fileInput').addEventListener('change', (e) => this.labyrinth.load(e));
-                document.getElementById('toggleCollisionBtn').addEventListener('click', () => this.toggleCollision());
-            }
-
-            animate() {
-                requestAnimationFrame(this.animate.bind(this));
-                const time = performance.now();                                
-                const delta = (performance.now() - (this.prevTime || time)) / 1000;
-                this.world.step(Config.TIME_STEP);
-                this.player.animate(delta, time);
-                this.labyrinth.animate(delta, time);
-                this.renderer.render(this.scene, this.camera);
-                this.prevTime = performance.now();
-            }
-
-            onWindowResize() {
-                this.camera.aspect = window.innerWidth / window.innerHeight;
-                this.camera.updateProjectionMatrix();
-                this.renderer.setSize(window.innerWidth, window.innerHeight);
-            }
-
-            toggleCollision() {
-                this.collisionEnabled = !this.collisionEnabled;
-                const btn = document.getElementById('toggleCollisionBtn');
-                btn.textContent = this.collisionEnabled ? 'Disable Collision' : 'Enable Collision';
-                console.log(this.collisionEnabled, btn);
-                btn.style.background = this.collisionEnabled ? '#4CAF50' : '#ff4136';
-                this.world.bodies.forEach(body => {
-                    body.collisionResponse = body.lockedCollisions || this.collisionEnabled
-                });
+        function init() {
+            try {
+                setupScene();
+                setupPhysics();
+                setupPlayer();
+                setupEventListeners();
+                drawLabyrinth();
+                resetPlayerPosition();
+                animate();
+                window.addEventListener('resize', onWindowResize, false);
+                console.log("Initialization complete");
+            } catch (error) {
+                console.error("Error during initialization:", error);
             }
         }
 
-        class Player {
-            constructor(game) {
-                this.game = game;
-                this.move = { forward: false, backward: false, left: false, right: false, sprint: false };
-                this.canJump = false;
-                this.direction = new THREE.Vector3();
-                const shape = new CANNON.Sphere(Config.PLAYER_RADIUS);
-                this.body = new CANNON.Body({
-                    mass: 5, shape, material: new CANNON.Material('playerMaterial'),
-                    linearDamping: 0.9, angularDamping: 0.9
-                });
-                this.body.lockedCollisions = true;
-                this.body.position.set(0, Config.PLAYER_HEIGHT, 0);
-                this.game.world.addBody(this.body);
-            }
+        function setupScene() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x87CEEB);
+            scene.fog = new THREE.Fog(0x87CEEB, 0, 500);
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setClearColor(0x87CEEB);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            document.body.appendChild(renderer.domElement);
+            
+            const light = new THREE.DirectionalLight(0xffffff, 1);
+            light.position.set(50, 100, 50);
+            light.castShadow = true;
+            scene.add(light);
+            scene.add(new THREE.AmbientLight(0x404040));
 
-            resetPosition() {
-                const pos = this.game.labyrinth.getStartPosition();
-                this.body.position.set(pos.x, Config.PLAYER_HEIGHT, pos.z);
-                this.body.velocity.set(0, 0, 0);
-                this.game.controls.getObject().position.copy(this.body.position);
-            }
+            const geometry = new THREE.BoxGeometry(1, 1, 1);
+            const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+            const cube = new THREE.Mesh(geometry, material);
+            cube.position.set(0, 0, -5);
+            scene.add(cube);
 
-            animate(delta, time) {
-                const { controls, camera } = this.game;
-                if (controls.isLocked) {
-                    this.direction.set(
-                        Number(this.move.right) - Number(this.move.left),
-                        0,
-                        Number(this.move.backward) - Number(this.move.forward)
-                    ).normalize();
-                    const speed = this.move.sprint ? Config.RUN_SPEED : Config.WALK_SPEED;
-                    const velocity = this.direction.clone().applyQuaternion(camera.quaternion).multiplyScalar(speed * delta);
-                    this.body.applyImpulse(new CANNON.Vec3(velocity.x, 0, velocity.z), this.body.position);
-                    if (this.canJump) { this.body.velocity.y = Config.JUMP_HEIGHT; this.canJump = false; }
-                }
-                this.game.controls.getObject().position.copy(this.body.position);
-                if (this.body.position.y < Config.PLAYER_HEIGHT) {
-                    this.body.position.y = Config.PLAYER_HEIGHT; this.body.velocity.y = 0; this.canJump = true;
-                }
-            }
-
-            onKeyDown(event) {
-                switch (event.code) {
-                    case 'ArrowUp': case 'KeyW': this.move.forward = true; break;
-                    case 'ArrowLeft': case 'KeyA': this.move.left = true; break;
-                    case 'ArrowDown': case 'KeyS': this.move.backward = true; break;
-                    case 'ArrowRight': case 'KeyD': this.move.right = true; break;
-                    case 'ShiftLeft': case 'ShiftRight': this.move.sprint = true; break;
-                    case 'Space': if (this.canJump) { this.body.velocity.y += Config.JUMP_HEIGHT; this.canJump = false; } break;
-                }
-            }
-
-            onKeyUp(event) {
-                switch (event.code) {
-                    case 'ArrowUp': case 'KeyW': this.move.forward = false; break;
-                    case 'ArrowLeft': case 'KeyA': this.move.left = false; break;
-                    case 'ArrowDown': case 'KeyS': this.move.backward = false; break;
-                    case 'ArrowRight': case 'KeyD': this.move.right = false; break;
-                    case 'ShiftLeft': case 'ShiftRight': this.move.sprint = false; break;
-                }
-            }
+            console.log("Scene setup complete");
         }
 
-        class Labyrinth {
-            constructor(game) {
-                this.game = game;
-                this.orbs = [];
-                this.wallBodies = [];
-                this.cachedGeometries = {};  // Cache for geometries based on dimensions
-                this.wallMaterial = new THREE.MeshPhongMaterial({
-                    map: new THREE.TextureLoader().load('https://threejs.org/examples/textures/brick_diffuse.jpg')
-                });
-                this.wallBodies = [];
+        function setupPhysics() {
+            world = new CANNON.World();
+            world.gravity.set(0, -GRAVITY, 0);
+            world.broadphase = new CANNON.NaiveBroadphase();
+            world.solver.iterations = 10;
 
-                this.draw();
-            }
+            const groundMaterial = new CANNON.Material('groundMaterial');
+            const playerMaterial = new CANNON.Material('playerMaterial');
+            const wallMaterial = new CANNON.Material('wallMaterial');
+            const playerGroundContact = new CANNON.ContactMaterial(groundMaterial, playerMaterial, {
+                friction: 0.8,
+                restitution: 0.3
+            });
+            world.addContactMaterial(playerGroundContact);
 
-            generate(width = Config.LABYRINTH_SIZE, height = Config.LABYRINTH_SIZE) {
-                // Resulting size may be different from the requested size
-                function neighbors(maze, ic, jc) {
-                    var final = [];
-                    for (var i = 0; i < 4; i++) {
-                        var n = [ic, jc];
-                        n[i % 2] += ((Math.floor(i / 2) * 2) || -2);
-                        if (n[0] < maze.length && 
-                            n[1] < maze[0].length && 
-                            n[0] > 0 && 
-                            n[1] > 0) {
-                            
-                            if (maze[n[0]][n[1]] == 1) {
-                                final.push(n);
-                            }
+            const playerWallContact = new CANNON.ContactMaterial(wallMaterial, playerMaterial, {
+                friction: 0.8,
+                restitution: 0.3
+            });
+            world.addContactMaterial(playerWallContact);
+        }
+
+        function setupPlayer() {
+            player = new THREE.Group();
+            scene.add(player);
+            camera.position.set(0, PLAYER_HEIGHT, 0);
+            player.add(camera);
+            controls = new THREE.PointerLockControls(camera, document.body);
+            scene.add(controls.getObject());
+
+            const playerShape = new CANNON.Sphere(PLAYER_RADIUS);
+            playerBody = new CANNON.Body({
+                mass: 5,
+                shape: playerShape,
+                material: new CANNON.Material('playerMaterial'),
+                linearDamping: 0.9,
+                angularDamping: 0.9
+            });
+            playerBody.position.set(0, PLAYER_HEIGHT, 0);
+            world.addBody(playerBody);
+        }
+
+        function setupEventListeners() {
+            document.addEventListener('keydown', onKeyDown);
+            document.addEventListener('keyup', onKeyUp);
+            document.addEventListener('click', () => controls.lock());
+            controls.addEventListener('lock', () => document.getElementById('instructions').style.display = 'none');
+            controls.addEventListener('unlock', () => document.getElementById('instructions').style.display = 'block');
+            document.getElementById('generateBtn').addEventListener('click', () => drawLabyrinth());
+            document.getElementById('saveBtn').addEventListener('click', saveLabyrinth);
+            document.getElementById('loadBtn').addEventListener('click', () => document.getElementById('fileInput').click());
+            document.getElementById('fileInput').addEventListener('change', loadLabyrinth);
+            document.getElementById('toggleCollisionBtn').addEventListener('click', toggleCollision);
+        }
+
+        function generateLabyrinth(seed = null, width=20, height=20) {
+            function neighbors(maze, ic, jc) {
+                var final = [];
+                for (var i = 0; i < 4; i++) {
+                    var n = [ic, jc];
+                    n[i % 2] += ((Math.floor(i / 2) * 2) || -2);
+                    if (n[0] < maze.length && 
+                        n[1] < maze[0].length && 
+                        n[0] > 0 && 
+                        n[1] > 0) {
+                        
+                        if (maze[n[0]][n[1]] == 1) {
+                            final.push(n);
                         }
                     }
-                    return final;
                 }
+                return final;
+            }
 
-                width -= width % 2; width++;
-                height -= height % 2; height++;
-                
-                var maze = [];
-                for (var i = 0; i < height; i++) {
-                    maze.push([]);
-                    for (var j = 0; j < width; j++) {
-                        maze[i].push(1);
-                    }
+            width -= width % 2; width++;
+            height -= height % 2; height++;
+            
+            var maze = [];
+            for (var i = 0; i < height; i++) {
+                maze.push([]);
+                for (var j = 0; j < width; j++) {
+                    maze[i].push(1);
                 }
-                
-                maze[0][1] = 0;
-                
-                var start = [];
+            }
+            
+            maze[0][1] = 0;
+            
+            var start = [];
+            do {
+                start[0] = Math.floor(Math.random() * height)
+            } while (start[0] % 2 == 0);
+            do {
+                start[1] = Math.floor(Math.random() * width)
+            } while (start[1] % 2 == 0);
+            
+            maze[start[0]][start[1]] = 0;
+            var openCells = [start];
+            
+            while (openCells.length) {
+                var cell, n;
+                openCells.push([-1, -1]);
                 do {
-                    start[0] = Math.floor(Math.random() * height)
-                } while (start[0] % 2 == 0);
-                do {
-                    start[1] = Math.floor(Math.random() * width)
-                } while (start[1] % 2 == 0);
-                
-                maze[start[0]][start[1]] = 0;
-                var openCells = [start];
-                
-                while (openCells.length) {
-                    var cell, n;
-                    openCells.push([-1, -1]);
-                    do {
-                        openCells.pop();
-                        if (openCells.length == 0)
-                            break;
-                        cell = openCells[openCells.length - 1];
-                        n = neighbors(maze, cell[0], cell[1]);
-                    } while (n.length == 0 && openCells.length > 0);
-                    
+                    openCells.pop();
                     if (openCells.length == 0)
                         break;
-                    
-                    var choice = n[Math.floor(Math.random() * n.length)];
-                    openCells.push(choice);
-                    maze[ choice[0] ][ choice[1] ] = 0;
-                    maze[ (choice[0] + cell[0]) / 2 ][ (choice[1] + cell[1]) / 2 ] = 0;
-                }
+                    cell = openCells[openCells.length - 1];
+                    n = neighbors(maze, cell[0], cell[1]);
+                } while (n.length == 0 && openCells.length > 0);
                 
-                maze[maze.length - 1][maze[0].length - 2] = 0;
-                maze[maze.length - 2][maze[0].length - 2] = 0;
+                if (openCells.length == 0)
+                    break;
                 
-                return maze;
+                var choice = n[Math.floor(Math.random() * n.length)];
+                openCells.push(choice);
+                maze[ choice[0] ][ choice[1] ] = 0;
+                maze[ (choice[0] + cell[0]) / 2 ][ (choice[1] + cell[1]) / 2 ] = 0;
             }
 
-            draw(matrix = null) {
-                this.matrix = matrix || this.generate();
-                this.freeBorders = this.getFreeBorders();
-
-                if (this.group) this.game.scene.remove(this.group);
-                this.group = new THREE.Group();
-                this.game.scene.add(this.group);
-                this.createWalls();
-                this.createFloor();
-                this.orbs = [
-                    [this.getStartPosition(), 0xFF0000], 
-                    ...this.getEndPositions().map(p=>[p, 0x00FF00])
-                ].map(([p, color])=>this.createOrb(p, color));
-                
-                if(this.game.player){
-                    this.game.player.resetPosition();
-                }
-            }
-
-            animate(delta, time){
-                this.orbs.forEach(child=>{
-                    child.position.y = child.userData.initialY + Math.sin(time * 0.003) * 0.5;
-                })                
-            }
-
-            createOrb(pos, color) {
-                const orbGeometry = new THREE.SphereGeometry(0.5, 32, 32);
-                const orbMaterial = new THREE.MeshBasicMaterial({ color: color });
-                const orb = new THREE.Mesh(orbGeometry, orbMaterial);
-
-                // Set orb position based on the cell's column and row
-                orb.position.set(pos.x, Config.WALL_HEIGHT / 2, pos.z);
-
-                // Create and position the light source at the same place as the orb
-                const light = new THREE.PointLight(orbMaterial.color, 1, Config.CELL_SIZE * 2);
-                orb.add(light);
-                                
-                // Store initial data for later use if necessary
-                orb.userData = {
-                    initialY: orb.position.y,
-                    light: light
-                };
-                this.group.add(orb);
-                return orb;
-            }
-
-            getFreeBorders(){
-                const freeBorders = [];
-                for (let i = 0; i < this.matrix.length; i++) {
-                    for (let j = 0; j < this.matrix[i].length; j++) {
-                        if(i > 0 && j > 0 && i < this.matrix.length - 1 && j < this.matrix[i].length -1 ) continue;
-                        if(![0, this.matrix.length-1].includes(i)) continue;
-                        if (this.matrix[i][j] === 0) {
-                            freeBorders.push([i,j]);
-                        }
+            // Add lava holes to the maze
+            for (let i = 1; i < height - 1; i += 2) {
+                for (let j = 1; j < width - 1; j += 2) {
+                    if (maze[i][j] === 0 && Math.random() < 0.1) {
+                        maze[i][j] = 2; // 2 represents a lava hole
                     }
                 }
-                return freeBorders;
             }
+            
+            maze[maze.length - 1][maze[0].length - 2] = 0;
+            maze[maze.length - 2][maze[0].length - 2] = 0;
+            
+            return maze;
+        }
 
-            // Method to cache geometries
-            getCachedGeometry(width, height, depth) {
-                const key = `${width}_${height}_${depth}`;
-                if (!this.cachedGeometries[key]) {
-                    this.cachedGeometries[key] = new THREE.BoxGeometry(width, height, depth);
-                }
-                return this.cachedGeometries[key];
-            }
+        function setupFloor() {
+            const floorGeometry = new THREE.PlaneGeometry(CELL_SIZE, CELL_SIZE);
+            const floorTexture = new THREE.TextureLoader().load('https://threejs.org/examples/textures/hardwood2_diffuse.jpg');
+            floorTexture.wrapS = THREE.RepeatWrapping;
+            floorTexture.wrapT = THREE.RepeatWrapping;
+            floorTexture.repeat.set(1, 1);
 
-            // Method to place a wall (invisible or visible)
-            placeWall(from, to, height, invisible = false) {
-                // Calculate wall dimensions and position
-                const width = Math.abs(to[0] - from[0]) * Config.CELL_SIZE || Config.CELL_SIZE;
-                const depth = Math.abs(to[1] - from[1]) * Config.CELL_SIZE || Config.CELL_SIZE;
-                const x = (from[0] + to[0]) / 2 * Config.CELL_SIZE + Config.CELL_SIZE / 2;
-                const z = (from[1] + to[1]) / 2 * Config.CELL_SIZE + Config.CELL_SIZE / 2;
+            const floorMaterial = new THREE.MeshPhongMaterial({ map: floorTexture });
 
-                const sizeX = (from[0] === to[0]) ? Config.CELL_SIZE / 2 : width / 2;
-                const sizeZ = (from[1] === to[1]) ? Config.CELL_SIZE / 2 : depth / 2;
+            for (let i = 0; i < LABYRINTH_SIZE; i++) {
+                for (let j = 0; j < LABYRINTH_SIZE; j++) {
+                    if (matrix[i][j] !== 2) {
+                        const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+                        floor.rotation.x = -Math.PI / 2;
+                        floor.position.set(i * CELL_SIZE + CELL_SIZE / 2, 0, j * CELL_SIZE + CELL_SIZE / 2);
+                        floor.receiveShadow = true;
+                        labyrinth.add(floor);
 
-                // Create CANNON body for physics
-                const shape = new CANNON.Box(new CANNON.Vec3(sizeX, height / 2, sizeZ));
-                const body = new CANNON.Body({ mass: 0, shape });
-                body.position.set(x, height / 2, z);
-                this.game.world.addBody(body);
-                this.wallBodies.push(body);
-
-                // If the wall is visible, create or reuse geometry and add it to the scene
-                if (!invisible) {
-                    body.collisionResponse = this.game.collisionEnabled;
-                    const wallGeo = this.getCachedGeometry(width, height, depth);
-                    const wall = new THREE.Mesh(wallGeo, this.wallMaterial);
-                    wall.position.set(x, height / 2, z);
-                    wall.castShadow = true;
-                    wall.receiveShadow = true;
-                    this.group.add(wall);
-                }else{
-                    body.lockedCollisions = true;
-                }
-            }
-
-            // Main method to create all walls
-            createWalls() {
-                // Clear existing walls
-                this.wallBodies.forEach(body => this.game.world.removeBody(body));
-                this.wallBodies = [];
-
-                // Create visible maze walls
-                for (let i = 0; i < this.matrix.length; i++) {
-                    for (let j = 0; j < this.matrix[i].length; j++) {
-                        if (this.matrix[i][j] === 1) {
-                            this.placeWall([i, j], [i, j], Config.WALL_HEIGHT);
-                        }
+                        const floorShape = new CANNON.Plane();
+                        const floorBody = new CANNON.Body({
+                            mass: 0,
+                            shape: floorShape,
+                            material: new CANNON.Material('groundMaterial')
+                        });
+                        floorBody.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 2);
+                        floorBody.position.set(i * CELL_SIZE + CELL_SIZE / 2, 0, j * CELL_SIZE + CELL_SIZE / 2);
+                        world.addBody(floorBody);
                     }
-                }
-
-                // Create invisible boundary walls
-                const boundaryWalls = ((W, H)=>[
-                    [[-1, -1], [-1, W] ],   // Left wall
-                    [[H, -1], [H, W]],      // Right wall
-                    [[-1, -1], [H, -1]],    // Top wall
-                    [[-1, W], [H, W]]       // Bottom wall
-                ])(this.matrix[0].length, this.matrix.length);
-
-                boundaryWalls.forEach(([from, to]) => {
-                    this.placeWall(from, to, Config.WALL_HEIGHT * 5, true);
-                });
-            }
-
-            createFloor() {
-                const floorSizeH = this.matrix.length * Config.CELL_SIZE;
-                const floorSizeW = (this.matrix?.[0]?.length??0) * Config.CELL_SIZE;
-                const floorGeo = new THREE.PlaneGeometry(floorSizeW, floorSizeH);
-                
-                // Load and configure the floor texture
-                const floorTexture = new THREE.TextureLoader().load('https://threejs.org/examples/textures/hardwood2_diffuse.jpg');
-                floorTexture.wrapS = floorTexture.wrapT = THREE.RepeatWrapping;
-                floorTexture.repeat.set(floorSizeW/5, floorSizeH/5);
-                
-                const floorMat = new THREE.MeshPhongMaterial({ map: floorTexture });
-                const floor = new THREE.Mesh(floorGeo, floorMat);
-                floor.rotation.x = -Math.PI / 2;
-                floor.position.set(floorSizeW / 2, 0, floorSizeH / 2);
-                floor.receiveShadow = true;
-                this.group.add(floor);
-
-                // Create the physics body for the floor
-                const shape = new CANNON.Plane();
-                const body = new CANNON.Body({ mass: 0, shape, material: new CANNON.Material('groundMaterial') });
-                body.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
-                this.game.world.addBody(body);
-            }
-
-            getStartPosition() {
-                const [i,j] = this.freeBorders[0];
-                return { x: i * Config.CELL_SIZE + Config.CELL_SIZE / 2, z: j * Config.CELL_SIZE + Config.CELL_SIZE / 2 };
-            }
-
-            getEndPositions(){
-                return this.freeBorders.slice(1).map(([i,j])=>{
-                    return { x: i * Config.CELL_SIZE + Config.CELL_SIZE / 2, z: j * Config.CELL_SIZE + Config.CELL_SIZE / 2 };
-                });
-            }
-
-            save() {
-                const blob = new Blob([JSON.stringify(this.matrix)], { type: 'application/json' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url; a.download = 'labyrinth.json'; a.click();
-                URL.revokeObjectURL(url);
-            }
-
-            load(event) {
-                const file = event.target.files[0];
-                if (file) {
-                    const reader = new FileReader();
-                    reader.onload = (e) => {
-                        const matrix = JSON.parse(e.target.result);
-                        this.draw(matrix);
-                    };
-                    reader.readAsText(file);
                 }
             }
         }
 
-        new Game();
+        function createLightOrbs() {
+            const orbGeometry = new THREE.SphereGeometry(0.5, 32, 32);
+            const orbColors = [0xffff00, 0x00ffff, 0xff00ff, 0x00ff00, 0xff0000, 0x0000ff];
+
+            for (let i = 0; i < LABYRINTH_SIZE; i++) {
+                for (let j = 0; j < LABYRINTH_SIZE; j++) {
+                    if (matrix[i][j] === 0 && Math.random() < 0.1) {
+                        const orbMaterial = new THREE.MeshBasicMaterial({ color: orbColors[Math.floor(Math.random() * orbColors.length)] });
+                        const orb = new THREE.Mesh(orbGeometry, orbMaterial);
+                        orb.position.set(i * CELL_SIZE + CELL_SIZE / 2, WALL_HEIGHT / 2, j * CELL_SIZE + CELL_SIZE / 2);
+                        labyrinth.add(orb);
+
+                        const light = new THREE.PointLight(orbMaterial.color, 1, CELL_SIZE * 2);
+                        light.position.copy(orb.position);
+                        labyrinth.add(light);
+
+                        orb.userData = {
+                            initialY: orb.position.y,
+                            light: light
+                        };
+                    }
+                }
+            }
+        }
+
+        function drawLabyrinth(inputMatrix = null) {
+            matrix = inputMatrix ?? generateLabyrinth();
+            if (labyrinth) scene.remove(labyrinth);
+            labyrinth = new THREE.Group();
+            scene.add(labyrinth);
+
+            const wallGeometry = new THREE.BoxGeometry(CELL_SIZE, WALL_HEIGHT, CELL_SIZE);
+            const wallTexture = new THREE.TextureLoader().load('https://threejs.org/examples/textures/brick_diffuse.jpg');
+            const wallMaterial = new THREE.MeshPhongMaterial({ map: wallTexture });
+
+            const lavaGeometry = new THREE.BoxGeometry(CELL_SIZE, WALL_HEIGHT / 2, CELL_SIZE);
+            const lavaMaterial = new THREE.MeshPhongMaterial({
+                color: 0xff4500,
+                emissive: 0xff0000,
+                specular: 0xffff00,
+                shininess: 50,
+                transparent: true,
+                opacity: 0.8
+            });
+
+            for (let i = 0; i < LABYRINTH_SIZE; i++) {
+                for (let j = 0; j < LABYRINTH_SIZE; j++) {
+                    if (matrix[i][j] === 1) {
+                        const wall = new THREE.Mesh(wallGeometry, wallMaterial);
+                        wall.position.set(i * CELL_SIZE + CELL_SIZE / 2, WALL_HEIGHT / 2, j * CELL_SIZE + CELL_SIZE / 2);
+                        wall.castShadow = true;
+                        wall.receiveShadow = true;
+                        labyrinth.add(wall);
+
+                        const wallShape = new CANNON.Box(new CANNON.Vec3(CELL_SIZE / 2, WALL_HEIGHT / 2, CELL_SIZE / 2));
+                        const wallBody = new CANNON.Body({
+                            mass: 0,
+                            shape: wallShape,
+                            material: new CANNON.Material('wallMaterial')
+                        });
+                        wallBody.position.set(i * CELL_SIZE + CELL_SIZE / 2, WALL_HEIGHT / 2, j * CELL_SIZE + CELL_SIZE / 2);
+                        world.addBody(wallBody);
+                        wallBodies.push(wallBody);
+                    } else if (matrix[i][j] === 2) {
+                        const lava = new THREE.Mesh(lavaGeometry, lavaMaterial);
+                        lava.position.set(i * CELL_SIZE + CELL_SIZE / 2, WALL_HEIGHT / 4, j * CELL_SIZE + CELL_SIZE / 2);
+                        labyrinth.add(lava);
+
+                        const lavaShape = new CANNON.Box(new CANNON.Vec3(CELL_SIZE / 2, WALL_HEIGHT / 4, CELL_SIZE / 2));
+                        const lavaBody = new CANNON.Body({
+                            mass: 0,
+                            shape: lavaShape,
+                            material: new CANNON.Material('lavaMaterial')
+                        });
+                        lavaBody.position.set(i * CELL_SIZE + CELL_SIZE / 2, WALL_HEIGHT / 4, j * CELL_SIZE + CELL_SIZE / 2);
+                        world.addBody(lavaBody);
+                        lavaBody.collisionResponse = true;
+                        lavaBody.addEventListener("collide", handleLavaCollision);
+                    }
+                }
+            }
+
+            setupFloor();
+            createLightOrbs();
+            resetPlayerPosition();
+            console.log("Labyrinth generated:", matrix);
+            console.log("Labyrinth added to scene");
+        }
+
+        function handleLavaCollision(event) {
+            if (event.body === playerBody) {
+                console.log("Player touched lava!");
+                resetPlayerPosition();
+            }
+        }
+
+        function resetPlayerPosition() {
+            playerBody.position.set(CELL_SIZE * 1.5, PLAYER_HEIGHT, CELL_SIZE * 1.5);
+            playerBody.velocity.set(0, 0, 0);
+            controls.getObject().position.copy(playerBody.position);
+            console.log("Player position reset:", playerBody.position);
+        }
+
+        function saveLabyrinth() {
+            const data = JSON.stringify(matrix);
+            const blob = new Blob([data], {type: 'application/json'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'labyrinth.json';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function loadLabyrinth(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const loadedMatrix = JSON.parse(e.target.result);
+                    drawLabyrinth(loadedMatrix);
+                };
+                reader.readAsText(file);
+            }
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const time = performance.now();
+            const delta = (time - prevTime) / 1000;
+
+            try {
+                world.step(timeStep);
+
+                updatePlayerMovement(delta);
+                syncPlayerWithPhysics();
+
+                // Update orb positions
+                labyrinth.children.forEach(child => {
+                    if (child instanceof THREE.Mesh && child.geometry instanceof THREE.SphereGeometry) {
+                        const direction = new THREE.Vector3().subVectors(playerBody.position, child.position).normalize();
+                        child.position.add(direction.multiplyScalar(0.05)); // Adjust speed here
+                        child.position.y = child.userData.initialY + Math.sin(time * 0.003) * 0.5;
+                        child.userData.light.position.copy(child.position);
+                    }
+                });
+
+                prevTime = time;
+                renderer.render(scene, camera);
+            } catch (error) {
+                console.error("Error in animate function:", error);
+            }
+        }
+
+        function updatePlayerMovement(delta) {
+            direction.z = Number(moveForward) - Number(moveBackward);
+            direction.x = Number(moveRight) - Number(moveLeft);
+            direction.normalize();
+
+            if (controls.isLocked) {
+                const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+                const right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
+
+                const moveDirection = new THREE.Vector3();
+                moveDirection.addScaledVector(forward, direction.z);
+                moveDirection.addScaledVector(right, direction.x);
+                moveDirection.y = 0;
+                moveDirection.normalize();
+
+                const speed = sprint ? RUN_SPEED : WALK_SPEED;
+                const moveImpulse = new CANNON.Vec3(
+                    moveDirection.x * speed * delta,
+                    0,
+                    moveDirection.z * speed * delta
+                );
+
+                playerBody.applyImpulse(moveImpulse, playerBody.position);
+            }
+
+            if (canJump && controls.isLocked) {
+                playerBody.velocity.y = JUMP_HEIGHT;
+                canJump = false;
+            }
+        }
+
+        function syncPlayerWithPhysics() {
+            controls.getObject().position.copy(playerBody.position);
+            
+            if (playerBody.position.y < PLAYER_HEIGHT) {
+                playerBody.position.y = PLAYER_HEIGHT;
+                playerBody.velocity.y = 0;
+                canJump = true;
+            }
+        }
+
+        function onKeyDown(event) {
+            switch (event.code) {
+                case 'ArrowUp':
+                case 'KeyW':
+                    moveForward = true;
+                    break;
+                case 'ArrowLeft':
+                case 'KeyA':
+                    moveLeft = true;
+                    break;
+                case 'ArrowDown':
+                case 'KeyS':
+                    moveBackward = true;
+                    break;
+                case 'ArrowRight':
+                case 'KeyD':
+                    moveRight = true;
+                    break;
+                case 'ShiftLeft':
+                case 'ShiftRight':
+                    sprint = true;
+                    break;
+                case 'Space':
+                    if (canJump) {
+                        playerBody.velocity.y += JUMP_HEIGHT;
+                        canJump = false;
+                    }
+                    break;
+            }
+        }
+
+        function onKeyUp(event) {
+            switch (event.code) {
+                case 'ArrowUp':
+                case 'KeyW':
+                    moveForward = false;
+                    break;
+                case 'ArrowLeft':
+                case 'KeyA':
+                    moveLeft = false;
+                    break;
+                case 'ArrowDown':
+                case 'KeyS':
+                    moveBackward = false;
+                    break;
+                case 'ArrowRight':
+                case 'KeyD':
+                    moveRight = false;
+                    break;
+                case 'ShiftLeft':
+                case 'ShiftRight':
+                    sprint = false;
+                    break;
+            }
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function toggleCollision() {
+            collisionEnabled = !collisionEnabled;
+            const button = document.getElementById('toggleCollisionBtn');
+            button.textContent = collisionEnabled ? 'Disable Collision' : 'Enable Collision';
+            button.style.background = collisionEnabled ? '#ff4136' : '#4CAF50';
+
+            world.bodies.forEach(body => {
+                body.collisionResponse = collisionEnabled;
+            });
+        }
+
+        init();
     </script>
-</body>
-</html>
+</body></html>
