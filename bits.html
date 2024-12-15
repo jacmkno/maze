@@ -66,9 +66,16 @@
       history.pushState(null, "", a.href);
 
       createCanvasWithCircles(n);
-      verifySpeechWithRecognition(n, lang,test, 10000).then(()=>{
-        play(n+1);
-      })
+      if(test){
+        while(!await verifySpeechWithRecognition(n, lang, !test, 10000));
+        setTimeout(()=>{
+          play(parseInt(Math.random() * 100));
+        }, 0);
+      }else{
+        verifySpeechWithRecognition(n, lang, !test, 10000).then(()=>{
+          play(parseInt(Math.random() * 100));
+        });
+      }
     }
   </script>
 
@@ -218,13 +225,13 @@
 
     }
 
-    async function verifySpeechWithRecognition(text, language = "en-US", speak = true, timeout = 10000) {
+    async function verifySpeechWithRecognition(text, language = "en-US", spellOut = true, timeout = 10000) {
         return new Promise(async (resolve, reject) => {
             const spokenText = text.toString(); // Ensure text is a string
             const synthesis = window.speechSynthesis;
             const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
             recognition.onstart = () => recognition._active = true;
-            recognition.onend = () => recognition._active = false;
+            recognition.onend = () => recognition.start();
             recognition.onerror = () => recognition._active = false;
             recognition.lang = language;
             recognition.interimResults = false;
@@ -234,34 +241,31 @@
             let isResolved = false;
 
             const cleanup = async () => {
-                console.log('cleaning up...', recognition);
+                //console.log('cleaning up...', recognition);
                 clearTimeout(timeoutHandle);
                 delete recognition.onresult;
-                await Promise.all([new Promise(r => {
+                await new Promise(r => {
                     if(!recognition._active) return r();
                     recognition.onerror = recognition.onend = r;
                     recognition.abort();
-                }), new Promise(r => {
-                    if(!synthesis.speaking) return r();
-                    synthesis.addEventListener("voiceschanged", () => {
-                        synthesis.removeEventListener("voiceschanged", handleVoicesChanged);
-                        r();
-                    });
-                    synthesis.cancel();
-                })]);
-                console.log('cleaup done...');
+                    recognition._active = false;
+                });
+                synthesis.cancel();
+                //console.log('cleaup done...');
             };
             await cleanup();
             window.audioCleanup = cleanup;
 
             const primeSpeechSynthesis = () => {
-                return new Promise((resolve) => {
+              if(window.soundAquired) return;
+              return new Promise((resolve) => {
                     const utterance = new SpeechSynthesisUtterance("a");
                     utterance.lang = language;
                     utterance.volume = 0; // Mute
                     utterance.onend = () => resolve();
                     if(synthesis.speaking) synthesis.cancel();
                     synthesis.speak(utterance);
+                    window.soundAquired = true;
                 });
             };
 
@@ -272,13 +276,6 @@
 
                 const utterance = new SpeechSynthesisUtterance(spokenText);
                 utterance.lang = language;
-
-                utterance.onend = () => {
-                    if (!isResolved) {
-                        startRecognition();
-                    }
-                };
-
                 utterance.onerror = (error) => {
                     if (error.error !== "interrupted") {
                         console.error("SpeechSynthesis error:", error);
@@ -294,25 +291,31 @@
             const startRecognition = () => {
                 if (isResolved) return;
                 recognition.start();
-                timeoutHandle = setTimeout(() => {
-                    if (!isResolved) {
-                        cleanup().then(()=>resolve(false))
-                    }
-                }, timeout);
+                if(spellOut){
+                  timeoutHandle = setTimeout(() => {
+                      if (!isResolved) {
+                          cleanup().then(()=>resolve(false))
+                      }
+                  }, timeout);
+                }
             };
 
             recognition.onresult = (event) => {
+                console.log('result:', synthesis.speaking);
+
+                if(synthesis.speaking) {
+                  return;
+                }
                 const recognizedText = event.results[0][0].transcript.trim();
                 if (recognizedText === spokenText) {
                     if (!isResolved) {
                         isResolved = true;
+                        console.log(`Correct!`);
                         cleanup().then(()=>resolve(true));
                     }
                 } else {
                     console.log(`Misheard: ${recognizedText}.`);
-                    if (!isResolved && Date.now() < timeoutHandle._idleStart + timeout) {
-                        speakText(); // Repeat only if time permits
-                    }
+                    if (!isResolved) speakText();
                 }
             };
 
@@ -324,8 +327,8 @@
                     cleanup().then(()=>resolve(false));
                 }
             };
-
-            speakText(); // Start the process
+            startRecognition();
+            if(spellOut) speakText(); // Start the process
         });
     }
   </script>
