@@ -9,10 +9,9 @@ class Speech {
         if(!document.getElementById('speech-styles')){
             const addStyles = ((c,D)=>{const s=D.createElement('style');s.type='text/css';s.styleSheet?s.styleSheet.cssText=c:s.appendChild(D.createTextNode(c));D.head.appendChild(s);return s;});
             const s = addStyles(`
-                .speech-cue { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background-color: rgba(0, 0, 0, 0.75); color: white; padding: 12px 24px; border-radius: 9999px; font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif; font-size: 16px; z-index: 1000; display: none; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); transition: opacity 0.3s ease, background-color 0.3s ease; }
-                .speech-cue-error { background-color: #b91c1c; }
-                .speech-cue-success { background-color: #16a34a; }
-                .speech-cue::after { content: ''; position: absolute; bottom: 0; left: 0; height: 100%; background-color: rgba(255, 255, 255, 0.2); width: 100%; transform-origin: left; transform: scaleX(var(--timeout-progress, 0)); transition: transform 0.05s linear; }
+                .speech-cue { --base-bgcolor: rgba(0, 0, 0, 0.75); position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: linear-gradient(to right, color-mix(in srgb, var(--base-bgcolor) 80%, white 20%) calc(var(--timeout-progress, 0) * 100%), var(--base-bgcolor) calc(var(--timeout-progress, 0) * 100%) ); color: white; padding: 12px 24px; border-radius: 9999px; font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif; font-size: 16px; z-index: 1000; display: none; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); transition: opacity 0.3s ease, background-color 0.3s ease; }
+                .speech-cue-error { --base-bgcolor: #b91c1c; }
+                .speech-cue-success { --base-bgcolor: #16a34a; }
             `, document);
             s.setAttribute('id', 'speech-styles');
         }
@@ -42,11 +41,11 @@ class Speech {
         }
     }
     
-    static async #checkPermissions() {
+    static async #checkPermissions(autoClearCue=true) {
         // 1. Check for basic API support first.
         if (!this.#synthesis || !this.#Recognition) {
             this.#createVisualCue('Speech APIs not supported by this browser.', { isError: true });
-            this.#cueTimeoutId = setTimeout(() => this.#removeVisualCue(), 5000);
+            if(autoClearCue) this.#cueTimeoutId = setTimeout(() => this.#removeVisualCue(), 5000);
             return false;
         }
 
@@ -57,7 +56,7 @@ class Speech {
                 return true;
             } catch (err) {
                 this.#createVisualCue('Microphone access denied.', { isError: true });
-                this.#cueTimeoutId = setTimeout(() => this.#removeVisualCue(), 5000);
+                if(autoClearCue) this.#cueTimeoutId = setTimeout(() => this.#removeVisualCue(), 5000);
                 return false;
             }
         }
@@ -69,21 +68,21 @@ class Speech {
         }
 
         if (permissionStatus.state === 'denied') {
-            this.#createVisualCue('Microphone access denied. Please grant permission in browser settings.', { isError: true });
-            this.#cueTimeoutId = setTimeout(() => this.#removeVisualCue(), 5000);
+            this.#createVisualCue('No microphone access', { isError: true });
+            if(autoClearCue) this.#cueTimeoutId = setTimeout(() => this.#removeVisualCue(), 5000);
             return false;
         }
 
         if (permissionStatus.state === 'prompt') {
-            this.#createVisualCue('Please grant microphone access in the browser prompt.');
+            this.#createVisualCue('Grant microphone access');
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                 stream.getTracks().forEach(track => track.stop());
                 this.#removeVisualCue();
                 return true;
             } catch (err) {
-                this.#createVisualCue('Microphone access denied.', { isError: true });
-                this.#cueTimeoutId = setTimeout(() => this.#removeVisualCue(), 5000);
+                this.#createVisualCue('Microphone access error', { isError: true });
+                if(autoClearCue) this.#cueTimeoutId = setTimeout(() => this.#removeVisualCue(), 5000);
                 return false;
             }
         }
@@ -117,13 +116,16 @@ class Speech {
         }
     }
 
-    static async listen(triggerText, lang = "en-US", timeout = 10000) {
+    static async listen(finalizeText=[], lang = "en-US", timeout = 10000) {
         const releaseLock = await this.#acquireLock();
+        const triggers = (Array.isArray(finalizeText) ? finalizeText:[ finalizeText ]).map(t => t.toLowerCase());
+
         let progressInterval = null;
         let detections = 0;
+        let transcript = '';
         
         try {
-            const hasPermission = await this.#checkPermissions();
+            const hasPermission = await this.#checkPermissions(false);
             if (hasPermission) this.#createVisualCue('Listening…');
             const cueElement = this.#visualCue;
             const startTime = Date.now();
@@ -157,25 +159,27 @@ class Speech {
                         recognition.stop();
                         recognition = null;
                     }
-                    
-                    const message = result ? "Trigger matched!" : "No match found.";
-                    this.#createVisualCue(message, { isSuccess: result, isError: !result });
+                    const message = result.success === null ? "No input" : (result.success ? "Success!" : "Failed");
+                    this.#createVisualCue(message, { isSuccess: result.success, isError: !result.success });
                     await new Promise(r => setTimeout(r, 2500));
                     
                     resolve(result);
                 };
 
                 timeoutHandle = setTimeout(() => {
-                    finalize(detections?false:null);
+                    finalize({success: detections?false:null, transcript});
                 }, timeout);
 
                 recognition.onresult = (event) => {
-                    const transcript = event.results[event.results.length - 1][0].transcript.trim().toLowerCase();
-                    const triggers = Array.isArray(triggerText) ? triggerText.map(t => t.toLowerCase()) : [triggerText.toLowerCase()];
-                    const triggerFound = triggers.some(trigger => transcript.includes(trigger));
+                    transcript = [...event.results].map(r=>r[0].transcript).filter(r=>r.length).join(' ');
+                    const abortSequencePool = [...event.results].map(r=>
+                        [...r].map(r=>r.transcript).filter(r=>r.length).join(' ')
+                    ).filter(r=>r.length).join(' ');
+                    
+                    const triggerFound = triggers.some(trigger => abortSequencePool.includes(trigger));
                     detections ++;
                     if (triggerFound) {
-                        finalize(true);
+                        finalize({success: true, transcript});
                     }
                 };
 
@@ -197,6 +201,85 @@ class Speech {
             if (this.#visualCue) this.#visualCue.style.setProperty('--timeout-progress', '0');
             this.#removeVisualCue();
             releaseLock();
+        }
+    }
+}
+
+
+function createCanvasWithCircles(n, width, height) {
+    const canvas = document.createElement('canvas');
+    canvas.width = width; 
+    canvas.height = height; 
+    const ctx = canvas.getContext('2d');
+    
+    const circles = [];
+    const minRadius = 15;
+    const maxRadius = 60;
+    let attempts = 0;
+
+    let fixedRadius = null;
+    if (!this.isRandomSize) {
+        const canvasArea = canvas.width * canvas.height;
+        const targetFillArea = canvasArea * 0.4;
+        fixedRadius = Math.sqrt(targetFillArea / (Math.PI * n));
+    }
+
+    while (circles.length < n && attempts < 2000) {
+        const radius = this.isRandomSize ? Math.random() * (maxRadius - minRadius) + minRadius : fixedRadius;
+        const x = Math.random() * (canvas.width - 2 * radius) + radius;
+        const y = Math.random() * (canvas.height - 2 * radius) + radius;
+        
+        let isOverlapping = false;
+        for(const existingCircle of circles) {
+            const dx = x - existingCircle.x;
+            const dy = y - existingCircle.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            if (distance < radius + existingCircle.radius + 10) { // +10 for padding
+                isOverlapping = true;
+                break;
+            }
+        }
+
+        if (!isOverlapping) {
+            circles.push({ x, y, radius });
+            ctx.beginPath();
+            ctx.arc(x, y, radius, 0, Math.PI * 2);
+            ctx.fillStyle = '#ef4444'; // red-500
+            ctx.fill();
+        }
+        attempts++;
+    }
+    return canvas;
+}
+
+class SlideGenerator {
+    drawNext(){
+        this.slide = document.createElement('div');
+        this.slide.className = 'text-9xl font-black text-white';
+        this.slide.innerText = Math.floor(Math.random() * 100) + 1;
+        UI.displaySlide(this.slide);
+    }
+
+    awaitContinuous(){
+        this.timeout = setTimeout(() => this.nextSlide(), 2000);
+    }
+
+    awaitTest(){
+        this.slide.addEventListener('click', ()=>this.nextSlide());
+    }
+
+    nextSlide() {
+        if (!UI.isPlaying()) return;                
+        if(this.timeout) {
+            clearTimeout(this.timeout);
+            delete this.timeout;
+        }                
+        this.drawNext();
+
+        if (UI.getMode() === 'test') {
+            this.awaitTest();
+        } else {
+            this.awaitContinuous();
         }
     }
 }
