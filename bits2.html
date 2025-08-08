@@ -6,7 +6,7 @@
     <title>Glen Doman's Method - UI Shell</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <script type="text/javascript" src="https://jacmkno.github.io/maze/speech.js"></script>
+    <script type="text/javascript" src="speech.js"></script>
     <!-- Google Fonts: Inter -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -32,6 +32,11 @@
         }
         .toggle-checkbox:checked + .toggle-label {
             background-color: #4f46e5; /* indigo-600 */
+        }
+
+        #slide-container {
+            --m: 4px; --t: 81px; --b:var(--m); 
+            width: calc(100% - calc(var(--m) * 2)); height: calc(100% - var(--t) - var(--b)); margin: var(--t) var(--m) var(--b) var(--m); position: fixed; top: 0; left: 0;            
         }
     </style>
 </head>
@@ -63,7 +68,7 @@
             </button>
         </div>
         <!-- Container for slides -->
-        <div id="slide-container" class="w-full h-full flex items-center justify-center p-8">
+        <div id="slide-container" class="flex items-center justify-center">
              <h2 class="text-2xl text-gray-500">Press Play to Start</h2>
         </div>
     </div>
@@ -100,170 +105,69 @@
     </div>
 
     <script>
-        class UI {
-            static isPlaying() {
-                const isModalVisible = !document.getElementById('info-modal').classList.contains('hidden');
-                if (isModalVisible) {
-                    return false;
+        const _$ = id => document.getElementById(id);
+        const _cl = id => _$(id).classList;
+        const UI = {
+            getMode() { return _$('mode-toggle').checked ? 'test' : 'continuous'; },
+            play() { _cl('pause-icon').remove('hidden'); _cl('play-icon').add('hidden'); },
+            pause() { _cl('pause-icon').add('hidden'); _cl('play-icon').remove('hidden'); },
+            slideContainer() { return _$('slide-container'); },
+            start(g) { UI.generator = g; },
+            onClick_StartApp() { _cl('start-screen').add('hidden'); _cl('app-container').remove('hidden'); },
+            onClick_Info(s) { _cl('info-modal').toggle('hidden', !s); },
+            isPlaying() {
+                if (!_cl('info-modal').contains('hidden')) return false;
+                return !_cl('pause-icon').contains('hidden');
+            },
+            displaySlide(d) {
+                const c = _$('slide-container');
+                if (c) {
+                    c.innerHTML = '';
+                    c.appendChild(d);
                 }
-                return !document.getElementById('pause-icon').classList.contains('hidden');
-            }
-
-            static getMode() {
-                const isTestMode = document.getElementById('mode-toggle').checked;
-                return isTestMode ? 'test' : 'continuous';
-            }
-
-            static displaySlide(divElement) {
-                const container = document.getElementById('slide-container');
-                if (container) {
-                    container.innerHTML = ''; // Clear previous slide
-                    container.appendChild(divElement);
-                }
-            }
-            
-            static play() {
-                document.getElementById('pause-icon').classList.remove('hidden');
-                document.getElementById('play-icon').classList.add('hidden');
-            }
-
-            static pause() {
-                document.getElementById('pause-icon').classList.add('hidden');
-                document.getElementById('play-icon').classList.remove('hidden');
-            }
-
-            static onClick_StartApp() {
-                document.getElementById('start-screen').classList.add('hidden');
-                document.getElementById('app-container').classList.remove('hidden');
-            }
-
-            static onClick_Info(show) {
-                document.getElementById('info-modal').classList.toggle('hidden', !show);
-            }
-
-            static onClick_Play() {
-                const playIcon = document.getElementById('play-icon');
-                const pauseIcon = document.getElementById('pause-icon');
-                
-                const isCurrentlyPlaying = !pauseIcon.classList.contains('hidden');
-
-                if (isCurrentlyPlaying) {
+            },
+            onClick_Play() {
+                if (!_cl('pause-icon').contains('hidden')) {
                     UI.pause();
                 } else {
                     UI.play();
                     UI.generator.nextSlide();
                 }
-            }            
-
-            static start(generator) {
-                UI.generator = generator;
-            }
-        }
-
-        class SlideGenerator {
-            drawNext(){
-                this.slide = document.createElement('div');
-                this.slide.className = 'text-9xl font-black text-white';
-                this.slide.innerText = Math.floor(Math.random() * 100) + 1;
-                UI.displaySlide(this.slide);
-            }
-
-            awaitContinuous(){
-                this.timeout = setTimeout(() => this.nextSlide(), 2000);
-            }
-
-            awaitTest(){
-                this.slide.addEventListener('click', ()=>this.nextSlide());
-            }
-
-            nextSlide() {
-                if (!UI.isPlaying()) return;                
-                if(this.timeout) {
-                    clearTimeout(this.timeout);
-                    delete this.timeout;
-                }                
-                this.drawNext();
-
-                if (UI.getMode() === 'test') {
-                    this.awaitTest();
-                } else {
-                    this.awaitContinuous();
-                }
-            }
-        }
-
-        class CircleGenerator extends SlideGenerator {
-            constructor(isRandomSize = true) {
-                super();
-                this.isRandomSize = isRandomSize;
-            }
-
-            drawCircles(n) {
-                const canvas = document.createElement('canvas');
-                const container = document.getElementById('slide-container');
-                canvas.width = container.offsetWidth;
-                canvas.height = container.offsetHeight;
-                const ctx = canvas.getContext('2d');
-                
-                const circles = [];
-                const minRadius = 15;
-                const maxRadius = 60;
-                let attempts = 0;
-
-                let fixedRadius = null;
-                if (!this.isRandomSize) {
-                    const canvasArea = canvas.width * canvas.height;
-                    const targetFillArea = canvasArea * 0.4;
-                    fixedRadius = Math.sqrt(targetFillArea / (Math.PI * n));
+            },
+        };
+        if(typeof(SlideGenerator) != 'undefined'){
+            class CircleGenerator extends SlideGenerator {
+                constructor(isRandomSize = true) {
+                    super();
+                    this.isRandomSize = isRandomSize;
                 }
 
-                while (circles.length < n && attempts < 2000) {
-                    const radius = this.isRandomSize ? Math.random() * (maxRadius - minRadius) + minRadius : fixedRadius;
-                    const x = Math.random() * (canvas.width - 2 * radius) + radius;
-                    const y = Math.random() * (canvas.height - 2 * radius) + radius;
-                    
-                    let isOverlapping = false;
-                    for(const existingCircle of circles) {
-                        const dx = x - existingCircle.x;
-                        const dy = y - existingCircle.y;
-                        const distance = Math.sqrt(dx * dx + dy * dy);
-                        if (distance < radius + existingCircle.radius + 10) { // +10 for padding
-                            isOverlapping = true;
-                            break;
+                drawNext() {
+                    this.currentNumber = Math.floor(Math.random() * 15) + 1;
+                    this.slide = createCanvasWithCircles(this.currentNumber, 
+                        ...((c)=>[c.offsetWidth, c.offsetHeight])(UI.slideContainer()));
+                    UI.displaySlide(this.slide);
+                }
+
+                async awaitContinuous() {
+                    await Speech.speak(this.currentNumber.toString());
+                    this.timeout = setTimeout(() => this.nextSlide(), 3000);
+                }
+
+                async awaitTest() {
+                    let success = false;
+                    while(!success){
+                        if(!UI.isPlaying()) return;
+                        success = (await Speech.listen(this.currentNumber.toString(), 'en-US', 7000)).success;
+                        if(success) {
+                            return this.nextSlide();
                         }
+                        await Speech.speak(this.currentNumber.toString());
                     }
-
-                    if (!isOverlapping) {
-                        circles.push({ x, y, radius });
-                        ctx.beginPath();
-                        ctx.arc(x, y, radius, 0, Math.PI * 2);
-                        ctx.fillStyle = '#ef4444'; // red-500
-                        ctx.fill();
-                    }
-                    attempts++;
-                }
-                return canvas;
-            }
-
-            drawNext() {
-                this.currentNumber = Math.floor(Math.random() * 15) + 1;
-                this.slide = this.drawCircles(this.currentNumber);
-                UI.displaySlide(this.slide);
-            }
-
-            async awaitContinuous() {
-                await Speech.speak(this.currentNumber.toString());
-                this.timeout = setTimeout(() => this.nextSlide(), 3000);
-            }
-
-            async awaitTest() {
-                await Speech.speak(this.currentNumber.toString());
-                const success = await Speech.listen(this.currentNumber.toString(), 'en-US', 7000);
-                this.nextSlide();
+                }            
             }            
+            UI.start(new CircleGenerator(false));
         }
-
-        UI.start(new CircleGenerator(true));
     </script>
 </body>
 </html>
