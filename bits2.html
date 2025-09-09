@@ -106,6 +106,21 @@
     <script>
         const _$ = id => document.getElementById(id);
         const _cl = id => _$(id).classList;
+        async function numToWords(number, lang){
+          // ensure dependency is loaded
+          if (!window.n2words){
+            await new Promise((resolve, reject)=>{
+              const s=document.createElement('script');
+              s.src="https://cdn.jsdelivr.net/npm/n2words@1.23.0/dist/n2words.min.js";
+              s.onload=()=>resolve();
+              s.onerror=()=>reject(new Error("failed to load n2words"));
+              document.head.appendChild(s);
+            });
+          }
+          if (typeof window.n2words !== 'function') throw new Error("n2words not available");
+          return window.n2words(Number(number), { lang });
+        }
+
         const UI = {
             getMode() { return _$('mode-toggle').checked ? 'test' : 'continuous'; },
             play() { _cl('pause-icon').remove('hidden'); _cl('play-icon').add('hidden'); },
@@ -157,7 +172,9 @@
                     let success = false;
                     while(!success){
                         if(!UI.isPlaying()) return;
-                        success = (await Speech.listen(this.currentNumber.toString(), 'en-US', 7000)).success;
+                        const N = this.currentNumber;
+                        const L = 'en-US';
+                        success = (await Speech.listen([`${N}`, await numToWords(N, L)], L, 7000)).success;
                         if(success) {
                             return this.nextSlide();
                         }
