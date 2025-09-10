@@ -148,43 +148,44 @@
                     UI.generator.nextSlide();
                 }
             },
-        };
-        if(typeof(SlideGenerator) != 'undefined'){
-            class CircleGenerator extends SlideGenerator {
-                constructor(isRandomSize = true) {
-                    super();
-                    this.isRandomSize = isRandomSize;
-                }
-
-                drawNext(n=null) {
-                    this.currentNumber = n || (Math.floor(Math.random() * 15) + 1);
-                    this.slide = createCanvasWithCircles(this.currentNumber, true, UI.slideContainer());
-                    UI.displaySlide(this.slide);
-                }
-
-                async awaitContinuous() {
-                    await Speech.speak(this.currentNumber.toString());
-                    this.timeout = setTimeout(() => this.nextSlide(), 3000);
-                }
-
-                async awaitTest() {
-                    let success = false;
-                    while(!success){
-                        if(!UI.isPlaying()) return;
-                        const N = this.currentNumber;
-                        const L = 'en-US';
-                        success = (await Speech.listen([`${N}`, await numToWords(N, L)], L, 7000)).success;
-                        if(success) {
-                            return this.nextSlide();
-                        }
-                        await Speech.speak(this.currentNumber.toString());
-                    }
-                }            
+            lang(){
+                return 'es-CO';
             }
-            const G = new CircleGenerator(false);
-            window.Generator = G;
-            UI.start(G);
+        };
+        class CircleGenerator extends SlideGenerator {
+            constructor(isRandomSize = true) {
+                super();
+                this.isRandomSize = isRandomSize;
+            }
+
+            drawNext(n=null) {
+                this.currentNumber = n || (Math.floor(Math.random() * 15) + 1);
+                this.slide = createCanvasWithCircles(this.currentNumber, true, UI.slideContainer());
+                UI.displaySlide(this.slide);
+            }
+
+            async awaitContinuous() {
+                await Speech.speak(this.currentNumber.toString(), UI.lang());
+                this.timeout = setTimeout(() => this.nextSlide(), 3000);
+            }
+
+            async awaitTest() {
+                let success = false;
+                while(!success){
+                    if(!UI.isPlaying()) return;
+                    const N = this.currentNumber;
+                    const L = UI.lang();
+                    success = (await Speech.listen([`${N}`, await numToWords(N, L)], L, 7000)).success;
+                    if(success) {
+                        return this.nextSlide();
+                    }
+                    await Speech.speak(this.currentNumber.toString(), L);
+                }
+            }
         }
+        const G = new CircleGenerator(false);
+        window.Generator = G;
+        UI.start(G);
     </script>
 </body>
 </html>

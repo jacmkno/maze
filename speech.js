@@ -98,7 +98,8 @@ class Speech {
         return releaseLock;
     }
 
-    static async speak(text, lang = "en-US") {
+    static async speak(text, lang = "en-US", volume = 1.0) {
+        await this.checkVoiceWarmUp();
         const releaseLock = await this.#acquireLock();
         this.#createVisualCue('Speaking…');
         try {
@@ -107,6 +108,7 @@ class Speech {
                 const utterance = new SpeechSynthesisUtterance(text);
                 utterance.lang = lang;
                 utterance.onend = resolve;
+                utterance.volume = volume;
                 utterance.onerror = (event) => reject(new Error(`SpeechSynthesis Error: ${event.error}`));
                 this.#synthesis.speak(utterance);
             });
@@ -114,6 +116,12 @@ class Speech {
             this.#removeVisualCue();
             releaseLock();
         }
+    }
+
+    static async checkVoiceWarmUp(){
+        if(this.voiceReady) return;
+        this.voiceReady = true;
+        await this.speak('Initializing', 'en-US', 0.01, true);
     }
 
     static async listen(finalizeText=[], lang = "en-US", timeout = 10000) {
