@@ -6,52 +6,41 @@
     <title>Glen Doman's Method - UI Shell</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script type="text/javascript" src="speech.js"></script>
-    <!-- Google Fonts: Inter -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap" rel="stylesheet">
     <style>
-        /* Custom Styles */
         body {
             font-family: 'Inter', sans-serif;
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
-            background-color: #111827; /* gray-900 */
+            background-color: #111827;
         }
-
-        /* Hide scrollbar */
-        body::-webkit-scrollbar {
-            display: none;
-        }
-
-        /* Custom toggle switch style */
-        .toggle-checkbox:checked {
-            right: 0;
-            border-color: #4f46e5; /* indigo-600 */
-        }
-        .toggle-checkbox:checked + .toggle-label {
-            background-color: #4f46e5; /* indigo-600 */
-        }
+        body::-webkit-scrollbar { display: none; }
+        .toggle-checkbox:checked { right: 0; border-color: #4f46e5; }
+        .toggle-checkbox:checked + .toggle-label { background-color: #4f46e5; }
 
         #slide-container {
             --m: 4px; --t: 81px; --b:var(--m); 
             width: calc(100% - calc(var(--m) * 2)); height: calc(100% - var(--t) - var(--b)); margin: var(--t) var(--m) var(--b) var(--m); position: fixed; top: 0; left: 0;            
         }
+
+        input[type=range]::-webkit-slider-thumb { background: #4f46e5; cursor: pointer; }
+        input[type=number] { appearance: textfield; background: #1f2937; border: 1px solid #4b5563; color: white; padding: 2px 8px; border-radius: 4px; width: 60px;}
+        input[type=number]::-webkit-inner-spin-button,
+        input[type=number]::-webkit-outer-spin-button {
+            opacity: 1;
+        }        
     </style>
 </head>
 <body class="bg-gray-900 text-white overflow-hidden">
-
-    <!-- Main Application Container -->
     <div id="app-container" class="w-full h-screen relative hidden">
-        <!-- Top Right Controls -->
         <div id="top-controls" class="absolute top-6 right-6 z-20 flex items-center space-x-4">
-            <!-- Play/Pause Button -->
             <button id="play-pause-btn" onclick="UI.onClick_Play()" class="w-12 h-12 flex items-center justify-center bg-indigo-600 hover:bg-indigo-500 rounded-full transition-colors shadow-lg">
                 <svg id="pause-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="hidden"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
                 <svg id="play-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="ml-1"><path d="M5 3l14 9-14 9V3z"></path></svg>
             </button>
 
-            <!-- Mode Toggle Switch -->
             <div class="flex items-center space-x-2 text-sm">
                 <span>Continuous</span>
                 <div class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
@@ -60,19 +49,19 @@
                 </div>
                 <span>Test</span>
             </div>
-
-            <!-- Info Button -->
+            <button onclick="UI.onClick_Settings(true)" class="w-10 h-10 flex items-center justify-center bg-gray-800/50 hover:bg-gray-700/70 rounded-full transition-colors backdrop-blur-sm">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+            </button>
             <button onclick="UI.onClick_Info(true)" class="w-10 h-10 flex items-center justify-center bg-gray-800/50 hover:bg-gray-700/70 rounded-full transition-colors backdrop-blur-sm">
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
             </button>
         </div>
-        <!-- Container for slides -->
+
         <div id="slide-container" class="flex items-center justify-center">
              <h2 class="text-2xl text-gray-500">Press Play to Start</h2>
         </div>
     </div>
 
-    <!-- Initial Start Screen -->
     <div id="start-screen" class="w-full h-screen flex items-center justify-center z-10">
         <div class="text-center p-8 max-w-2xl">
             <h1 class="text-4xl md:text-5xl font-bold mb-4">Glen Doman's Method</h1>
@@ -85,7 +74,6 @@
         </div>
     </div>
 
-    <!-- Info Modal -->
     <div id="info-modal" class="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 hidden backdrop-blur-sm">
         <div class="bg-gray-800 rounded-2xl p-8 max-w-2xl w-full relative shadow-2xl">
             <button onclick="UI.onClick_Info(false)" class="absolute top-4 right-4 text-gray-400 hover:text-white">
@@ -103,11 +91,30 @@
         </div>
     </div>
 
+    <div id="settings-modal" class="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 hidden backdrop-blur-sm">
+        <div class="bg-gray-800 rounded-2xl p-8 max-w-md w-full relative shadow-2xl">
+            <button onclick="UI.onClick_Settings(false)" class="absolute top-4 right-4 text-gray-400 hover:text-white">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+            <h2 class="text-2xl font-bold mb-6">Settings</h2>
+            <div id="settings-container" class="space-y-6 text-gray-300">
+                <div>
+                    <label for="language-select" class="block text-sm font-medium mb-2">Language</label>
+                    <select id="language-select" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-2 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    </select>
+                </div>
+                <div>
+                    <label for="duration-slider" class="block text-sm font-medium mb-2">Slide Duration (seconds): <span id="duration-value">1</span></label>
+                    <input type="range" id="duration-slider" min="0.5" max="3" step="0.25" value="1" oninput="_$('duration-value').innerHTML = parseInt(UI.slideDuration()/100)/10;" class="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer">
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         const _$ = id => document.getElementById(id);
         const _cl = id => _$(id).classList;
         async function numToWords(number, lang){
-          // ensure dependency is loaded
           if (!window.n2words){
             await new Promise((resolve, reject)=>{
               const s=document.createElement('script');
@@ -117,11 +124,26 @@
               document.head.appendChild(s);
             });
           }
-          if (typeof window.n2words !== 'function') throw new Error("n2words not available");
           return window.n2words(Number(number), { lang });
         }
 
+        (()=>{
+            const select = _$('language-select');
+            const langs = 'en,ar,az,cz,dk,de,es,fr,fa,he,hr,hu,id,it,ko,lt,lv,nl,no,pl,pt,ru,sr,tr,uk,vi,zh'.split(',');
+            const names = new Intl.DisplayNames(['en'], { type: 'language' });
+            const _default = 'en';
+            const missing = {'cz': 'Czech', 'dk': 'Danish'};
+            langs.forEach(lang => {
+                const option = document.createElement('option');
+                option.value = lang;
+                option.textContent = missing[lang]??names.of(lang);
+                if (lang === _default) option.selected = true;
+                select.appendChild(option);
+            });
+        })();
+
         const UI = {
+            DURATION_BASE: 3000,
             getMode() { return _$('mode-toggle').checked ? 'test' : 'continuous'; },
             play() { _cl('pause-icon').remove('hidden'); _cl('play-icon').add('hidden'); },
             pause() { _cl('pause-icon').add('hidden'); _cl('play-icon').remove('hidden'); },
@@ -129,6 +151,7 @@
             start(g) { UI.generator = g; },
             onClick_StartApp() { _cl('start-screen').add('hidden'); _cl('app-container').remove('hidden'); },
             onClick_Info(s) { _cl('info-modal').toggle('hidden', !s); },
+            onClick_Settings(s) { _cl('settings-modal').toggle('hidden', !s); },
             isPlaying() {
                 if (!_cl('info-modal').contains('hidden')) return false;
                 return !_cl('pause-icon').contains('hidden');
@@ -164,24 +187,72 @@
                 }
             },
             lang(){
-                return 'en-US';
+                return _$('language-select').value;
+            },
+            slideDuration(){
+                return parseInt(this.DURATION_BASE*parseFloat(_$('duration-slider').value));
+            },
+            addSettings(controls){
+                _$('settings-container').append(...controls);
             }
         };
         class CircleGenerator extends SlideGenerator {
             constructor(isRandomSize = true) {
                 super();
                 this.isRandomSize = isRandomSize;
+                const S = document.createElement('div');
+                S.innerHTML = `<div>
+                    <label class="block text-sm font-medium mb-2">Quantity Range</label>
+                    <div class="flex space-x-4">
+                        <div>
+                            <label for="min-quantity" class="block text-xs mb-1">Min</label>
+                            <input type="range" id="min-quantity-slider" min="0" max="196" value="1" class="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer" oninput="UI._circle.setMinQuantity(this.value)">
+                            <input type="number" id="min-quantity" min="0" max="196" value="1" class="mt-2" oninput="UI._circle.setMinQuantity(this.value)">
+                        </div>
+                        <div>
+                            <label for="max-quantity" class="block text-xs mb-1">Max</label>
+                            <input type="range" id="max-quantity-slider" min="4" max="200" value="20" class="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer" oninput="UI._circle.setMaxQuantity(this.value)">
+                            <input type="number" id="max-quantity" min="4" max="200" value="20" class="mt-2" oninput="UI._circle.setMaxQuantity(this.value)">
+                        </div>
+                    </div>
+                </div>`;
+                UI.addSettings(S.childNodes); // Custom UI controls.
+                UI._circle = {
+                    minQuantity: 1,
+                    maxQuantity: 20,
+                    setMinQuantity(value) {
+                        const val = Math.max(0, Math.min(196, parseInt(value)));
+                        this.minQuantity = val;
+                        _$('min-quantity').value = val;
+                        _$('min-quantity-slider').value = val;
+                        // Ensure max is at least min + 4
+                        const minMax = val + 4;
+                        if (this.maxQuantity < minMax) {
+                            this.setMaxQuantity(minMax);
+                        }
+                        _$('max-quantity-slider').min = minMax;
+                        _$('max-quantity').min = minMax;
+                    },
+                    setMaxQuantity(value) {
+                        const minVal = this.minQuantity + 4;
+                        const val = Math.max(minVal, Math.min(200, parseInt(value)));
+                        this.maxQuantity = val;
+                        _$('max-quantity').value = val;
+                        _$('max-quantity-slider').value = val;
+                    },                    
+                };
             }
 
             drawNext(n=null) {
-                this.currentNumber = n || (Math.floor(Math.random() * 15) + 1);
+                const [a,b] = [UI._circle.minQuantity, UI._circle.maxQuantity];
+                this.currentNumber = n || (Math.floor(Math.random() * (b-a)) + a);
                 this.slide = createCanvasWithCircles(this.currentNumber, true, UI.slideContainer());
                 return UI.displaySlide(this.slide);
             }
 
             async awaitContinuous() {
                 await Speech.speak(this.currentNumber.toString(), UI.lang());
-                this.timeout = setTimeout(() => this.nextSlide(), 3000);
+                this.timeout = setTimeout(() => this.nextSlide(), UI.slideDuration());
             }
 
             async awaitTest() {
@@ -190,7 +261,7 @@
                     if(!UI.isPlaying()) return;
                     const N = this.currentNumber;
                     const L = UI.lang();
-                    success = (await Speech.listen([`${N}`, await numToWords(N, L)], L, 7000)).success;
+                    success = (await Speech.listen([`${N}`, await numToWords(N, L)], L, Math.floor(UI.slideDuration()*(2 + 1/3)) )).success;
                     if(success) {
                         return this.nextSlide();
                     }
