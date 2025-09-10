@@ -133,7 +133,7 @@ function renderFallback() {
     var fallbackHtml =
         '<div class="container"><div class="error">' +
         '<h1 style="margin-bottom:0;">Browser Not Supported</h1>' +
-        '<p style="margin-top:0;">Your browser does not support the features required to run this application. Modern support as of 2025 for <u>Speech Recognition and Synthesis</u> are required.</p>' +
+        '<p style="margin-top:0;">Your browser does not support the features required to run this application. Modern support as of 2025 for <u>Speech Recognition and Synthesis</u> is required.</p>' +
         '</div><h2>' + siteTitle + '</h2>' +
         siteIntro +
         '<p>Please use a modern browser such as:</p>' +
