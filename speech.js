@@ -17,6 +17,24 @@ class Speech {
         }
     }
 
+    static async getLangs(){
+        if(!speechSynthesis) return [];
+        return new Promise(resolve => {
+            function check() {
+                if (speechSynthesis.getVoices().length) {
+                    setTimeout(() => {
+                        resolve(
+                            Object.keys(Object.fromEntries(speechSynthesis.getVoices().map(l=>[l.lang, 1])))
+                        )
+                    }, 500);
+                } else {
+                    speechSynthesis.addEventListener("voiceschanged", check, { once: true });
+                }
+            }
+            check();
+        });
+    }
+
     static #createVisualCue(message, { isError = false, isSuccess = false } = {}) {
         if (this.#cueTimeoutId) {
             clearTimeout(this.#cueTimeoutId);

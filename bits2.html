@@ -122,16 +122,17 @@
           return window.n2words(Number(number), { lang });
         }
 
-        (()=>{
+        (async ()=>{
             const select = _$('language-select');
-            const langs = 'en,ar,az,cz,dk,de,es,fr,fa,he,hr,hu,id,it,ko,lt,lv,nl,no,pl,pt,ru,sr,tr,uk,vi,zh'.split(',');
+            const langs1 = new Set('en,ar,az,cz,dk,de,es,fr,fa,he,hr,hu,id,it,ko,lt,lv,nl,no,pl,pt,ru,sr,tr,uk,vi,zh'.split(','));
+            const langs2 = await Speech.getLangs();
+            const langs = langs2.filter(l=>langs1.has(l.split('-').shift()));
             const names = new Intl.DisplayNames(['en'], { type: 'language' });
-            const _default = 'en';
-            const missing = {'cz': 'Czech', 'dk': 'Danish'};
+            const _default = 'en-US';
             langs.forEach(lang => {
                 const option = document.createElement('option');
                 option.value = lang;
-                option.textContent = missing[lang]??names.of(lang);
+                option.textContent = names.of(lang);
                 if (lang === _default) option.selected = true;
                 select.appendChild(option);
             });
