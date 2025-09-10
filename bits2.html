@@ -156,10 +156,9 @@
                     this.isRandomSize = isRandomSize;
                 }
 
-                drawNext() {
-                    this.currentNumber = Math.floor(Math.random() * 15) + 1;
-                    this.slide = createCanvasWithCircles(this.currentNumber, 
-                        ...((c)=>[c.offsetWidth, c.offsetHeight])(UI.slideContainer()));
+                drawNext(n=null) {
+                    this.currentNumber = n || (Math.floor(Math.random() * 15) + 1);
+                    this.slide = createCanvasWithCircles(this.currentNumber, true, UI.slideContainer());
                     UI.displaySlide(this.slide);
                 }
 
@@ -181,8 +180,10 @@
                         await Speech.speak(this.currentNumber.toString());
                     }
                 }            
-            }            
-            UI.start(new CircleGenerator(false));
+            }
+            const G = new CircleGenerator(false);
+            window.Generator = G;
+            UI.start(G);
         }
     </script>
 </body>

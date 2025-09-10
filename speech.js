@@ -205,49 +205,64 @@ class Speech {
     }
 }
 
-
-function createCanvasWithCircles(n, width, height) {
+function createCanvasWithCircles(circleCount, fixed = true, container = document.body) {
     const canvas = document.createElement('canvas');
-    canvas.width = width; 
-    canvas.height = height; 
-    const ctx = canvas.getContext('2d');
-    
-    const circles = [];
-    const minRadius = 15;
-    const maxRadius = 60;
-    let attempts = 0;
+    Object.assign(canvas.style, {
+        position: 'absolute', top: '0', left: '0',
+        display: 'block',
+        width: '100%', height: '100%',
+        maxWidth: '100%', maxHeight: '100%',
+        objectFit: 'contain', aspectRatio: 'auto'
+    });
 
-    let fixedRadius = null;
-    if (!this.isRandomSize) {
-        const canvasArea = canvas.width * canvas.height;
-        const targetFillArea = canvasArea * 0.4;
-        fixedRadius = Math.sqrt(targetFillArea / (Math.PI * n));
+    const containerWidth = container.offsetWidth || window.innerWidth;
+    const containerHeight = container.offsetHeight || window.innerHeight;
+    const aspectRatio = containerWidth / containerHeight;
+    canvas.style.aspectRatio = `${aspectRatio}`;
+
+    canvas.width = containerWidth;
+    canvas.height = containerHeight;
+
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, containerWidth, containerHeight);
+
+    const circles = [];
+    const canvasArea = containerWidth * containerHeight;
+    const targetFillArea = canvasArea * 0.3;
+
+    let fixedRadius;
+    if (fixed) {
+        fixedRadius = Math.sqrt(targetFillArea / (Math.PI * circleCount));
     }
 
-    while (circles.length < n && attempts < 2000) {
-        const radius = this.isRandomSize ? Math.random() * (maxRadius - minRadius) + minRadius : fixedRadius;
-        const x = Math.random() * (canvas.width - 2 * radius) + radius;
-        const y = Math.random() * (canvas.height - 2 * radius) + radius;
-        
-        let isOverlapping = false;
-        for(const existingCircle of circles) {
-            const dx = x - existingCircle.x;
-            const dy = y - existingCircle.y;
+    function isOverlapping(newCircle) {
+        return circles.some(circle => {
+            const dx = circle.x - newCircle.x;
+            const dy = circle.y - newCircle.y;
             const distance = Math.sqrt(dx * dx + dy * dy);
-            if (distance < radius + existingCircle.radius + 10) { // +10 for padding
-                isOverlapping = true;
-                break;
-            }
-        }
+            return distance < circle.radius + newCircle.radius;
+        });
+    }
 
-        if (!isOverlapping) {
-            circles.push({ x, y, radius });
-            ctx.beginPath();
-            ctx.arc(x, y, radius, 0, Math.PI * 2);
-            ctx.fillStyle = '#ef4444'; // red-500
-            ctx.fill();
-        }
-        attempts++;
+    function generateCircle() {
+        const maxRadius = fixed ? fixedRadius : Math.sqrt(targetFillArea / (Math.PI * circleCount));
+        let radius, x, y, circle;
+        do {
+            radius = fixed ? fixedRadius : Math.random() * (maxRadius - 5) + 5; // Minimum radius of 5
+            x = Math.random() * (containerWidth - 2 * radius) + radius;
+            y = Math.random() * (containerHeight - 2 * radius) + radius;
+            circle = { x, y, radius };
+        } while (isOverlapping(circle));
+        return circle;
+    }
+
+    for (let i = 0; i < circleCount; i++) {
+        const circle = generateCircle();
+        circles.push(circle);
+        ctx.beginPath();
+        ctx.arc(circle.x, circle.y, circle.radius, 0, Math.PI * 2);
+        ctx.fillStyle = 'red';
+        ctx.fill();
     }
     return canvas;
 }
