@@ -291,13 +291,13 @@ class SlideGenerator {
         this.slide.addEventListener('click', ()=>this.nextSlide());
     }
 
-    nextSlide() {
+    async nextSlide() {
         if (!UI.isPlaying()) return;                
         if(this.timeout) {
             clearTimeout(this.timeout);
             delete this.timeout;
         }                
-        this.drawNext();
+        await this.drawNext();
 
         if (UI.getMode() === 'test') {
             this.awaitTest();

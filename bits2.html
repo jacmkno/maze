@@ -133,11 +133,26 @@
                 if (!_cl('info-modal').contains('hidden')) return false;
                 return !_cl('pause-icon').contains('hidden');
             },
-            displaySlide(d) {
+            async displaySlide(d) {
                 const c = _$('slide-container');
+                const S = c.style;
+                const fadeTime = 1; // seconds (float)
                 if (c) {
+                    const aO = 2*Math.PI*Math.random();
+                    const aI = 2*Math.PI*Math.random();
+                    const H = 150;
+                    const _wA = ()=>new Promise(r => requestAnimationFrame(r));
+                    const _wF = ()=>new Promise(r => setTimeout(r, fadeTime*1000));
+
+                    S.transition = `transform ${fadeTime}s`; await _wA();
+                    S.transform = `translateX(${H * Math.sin(aO)}%) translateY(${H * Math.cos(aO)}%)`; await _wF();
                     c.innerHTML = '';
                     c.appendChild(d);
+                    S.transform = `translateX(${H * Math.sin(aI)}%) translateY(${H * Math.cos(aI)}%)`;
+                    S.transition = 'none';
+                    await _wA();
+                    S.transition = `transform ${fadeTime}s`; await _wA();
+                    S.transform = 'translateX(0%)'; await _wF();
                 }
             },
             onClick_Play() {
@@ -149,7 +164,7 @@
                 }
             },
             lang(){
-                return 'es-CO';
+                return 'en-US';
             }
         };
         class CircleGenerator extends SlideGenerator {
@@ -161,7 +176,7 @@
             drawNext(n=null) {
                 this.currentNumber = n || (Math.floor(Math.random() * 15) + 1);
                 this.slide = createCanvasWithCircles(this.currentNumber, true, UI.slideContainer());
-                UI.displaySlide(this.slide);
+                return UI.displaySlide(this.slide);
             }
 
             async awaitContinuous() {
