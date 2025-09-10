@@ -28,7 +28,7 @@
         input[type=number] { appearance: textfield; background: #1f2937; border: 1px solid #4b5563; color: white; padding: 2px 8px; border-radius: 4px; width: 60px;}
     </style>
 </head>
-<body class="bg-gray-900 text-white overflow-hidden">
+<body id="body" class="bg-gray-900 text-white overflow-hidden">
     <div id="app-container" class="w-full h-screen relative hidden">
         <div id="top-controls" class="absolute top-6 right-6 z-20 flex items-center space-x-4">
             <button id="play-pause-btn" onclick="UI.onClick_Play()" class="w-12 h-12 flex items-center justify-center bg-indigo-600 hover:bg-indigo-500 rounded-full transition-colors shadow-lg">
@@ -82,6 +82,12 @@
                 <p>
                     By presenting information in a simple, clear, and repetitive way, parents can encourage their children to grasp complex ideas effortlessly. His methods have inspired many to engage children with interactive and stimulating learning experiences.
                 </p>
+                <noscript>
+                    <hr>
+                    <div class="container">
+                    <h3>JavaScript Disabled!</h3>
+                    <p>JavaScript is required. Please enable JavaScript or use a modern browser like Netscape Navigator 4.0 or Internet Explorer 4.0 or later.</p>
+                </noscript>                
             </div>
         </div>
     </div>
@@ -269,5 +275,6 @@
         window.Generator = G;
         UI.start(G);
     </script>
+    <script type="text/javascript" src="bits.compatibility.js"></script>
 </body>
 </html>
