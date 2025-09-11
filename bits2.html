@@ -39,7 +39,7 @@
             <div class="flex items-center space-x-2 text-sm">
                 <span>Continuous</span>
                 <div class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
-                    <input type="checkbox" name="toggle" id="mode-toggle" class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer"/>
+                    <input type="checkbox" name="toggle" id="mode-toggle" onclick="window.Generator.isFirst=true" class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer"/>
                     <label for="mode-toggle" class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-600 cursor-pointer"></label>
                 </div>
                 <span>Test</span>
@@ -132,6 +132,124 @@
           return window.n2words(Number(number), { lang });
         }
 
+        function numberToSentence(n, lang) {
+            lang = lang.split('-')[0];
+            const translations = {
+                en: () => n === 1 ? `There is 1 red dot` : `There are ${n} red dots`,
+                ar: () => {
+                if (n === 0) return "لا نقاط حمراء";
+                if (n === 1) return "يوجد 1 نقطة حمراء";
+                if (n === 2) return "يوجد نقطتان حمراوان";
+                if (n >= 3 && n <= 10) return `يوجد ${n} نقاط حمراء`;
+                return `يوجد ${n} نقطة حمراء`;
+                },
+                az: () => n === 1 ? `Var 1 qırmızı nöqtə` : `Var ${n} qırmızı nöqtələr`,
+                cz: () => {
+                if (n === 1) return `Je 1 červená tečka`;
+                if (n >= 2 && n <= 4) return `Jsou ${n} červené tečky`;
+                return `Jsou ${n} červených teček`;
+                },
+                dk: () => n === 1 ? `Der er 1 rød prik` : `Der er ${n} røde prikker`,
+                de: () => n === 1 ? `Es gibt 1 roter Punkt` : `Es gibt ${n} rote Punkte`,
+                es: () => n === 1 ? `Hay 1 punto rojo` : `Hay ${n} puntos rojos`,
+                fr: () => n === 1 ? `Il y a 1 point rouge` : `Il y a ${n} points rouges`,
+                fa: () => n === 1 ? `وجود دارد 1 نقطه قرمز` : `وجود دارد ${n} نقاط قرمز`,
+                he: () => n === 1 ? `יש 1 נקודה אדומה` : `יש ${n} נקודות אדומות`,
+                hr: () => {
+                if (n === 1) return `Ima 1 crvena točka`;
+                if (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 > 20)) return `Ima ${n} crvene točke`;
+                return `Ima ${n} crvenih točaka`;
+                },
+                hu: () => n === 1 ? `Van 1 piros pont` : `Vannak ${n} piros pontok`,
+                id: () => `Ada ${n} titik merah`, // No plural distinction
+                it: () => n === 1 ? `C'è 1 punto rosso` : `Ci sono ${n} punti rossi`,
+                ko: () => n === 1 ? `있다 1 빨간 점` : `있다 ${n} 빨간 점들`,
+                lt: () => {
+                if (n === 1) return `Yra 1 raudonas taškas`;
+                if (n % 10 === 0 || (n % 10 >= 2 && (n % 100 < 10 || n % 100 > 20))) return `Yra ${n} raudoni taškai`;
+                return `Yra ${n} raudonų taškų`;
+                },
+                lv: () => {
+                if (n === 1) return `Ir 1 sarkans punkts`;
+                if (n === 0 || n % 10 === 0) return `Ir ${n} sarkanu punktu`;
+                return `Ir ${n} sarkani punkti`;
+                },
+                nl: () => n === 1 ? `Er is 1 rode stip` : `Er zijn ${n} rode stippen`,
+                no: () => n === 1 ? `Det er 1 rød prikk` : `Det er ${n} røde prikker`,
+                pl: () => {
+                if (n === 1) return `Jest 1 czerwona kropka`;
+                if (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 > 20)) return `Są ${n} czerwone kropki`;
+                return `Są ${n} czerwonych kropek`;
+                },
+                pt: () => n === 1 ? `Há 1 ponto vermelho` : `Há ${n} pontos vermelhos`,
+                ru: () => {
+                if (n === 1) return `Есть 1 красная точка`;
+                if (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 > 20)) return `Есть ${n} красные точки`;
+                return `Есть ${n} красных точек`;
+                },
+                sr: () => {
+                if (n === 1) return `Ima 1 црвена тачка`;
+                if (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 > 20)) return `Ima ${n} црвене тачке`;
+                return `Ima ${n} црвених тачака`;
+                },
+                tr: () => n === 1 ? `Var 1 kırmızı nokta` : `Var ${n} kırmızı noktalar`,
+                uk: () => {
+                if (n === 1) return `Є 1 червона точка`;
+                if (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 > 20)) return `Є ${n} червоні точки`;
+                return `Є ${n} червоних точок`;
+                },
+                vi: () => `Có ${n} chấm đỏ`, // No plural distinction
+                zh: () => n === 1 ? `有一个 1 红点` : `有 ${n} 个红点`
+            };
+
+            if (!translations[lang]) {
+                console.warn(`Language ${lang} not supported, falling back to English`);
+                return translations.en();
+            }
+
+            return translations[lang]();
+        }
+
+        function repeatAfterMe(lang) {
+            lang = lang.split('-')[0];
+            const translations = {
+                en: () => "Repeat after me:",
+                ar: () => "كرر بعدي:",
+                az: () => "Məndən sonra təkrar et:",
+                cz: () => "Opakuj po mně:",
+                dk: () => "Gentag efter mig:",
+                de: () => "Wiederhole nach mir:",
+                es: () => "Repite después de mí:",
+                fr: () => "Répète après moi:",
+                fa: () => "بعد از من تکرار کن:",
+                he: () => "חזור אחריי:",
+                hr: () => "Ponovi za mnom:",
+                hu: () => "Ismételj utánam:",
+                id: () => "Ulangi setelah saya:",
+                it: () => "Ripeti dopo di me:",
+                ko: () => "나를 따라 반복해:",
+                lt: () => "Kartok paskui mane:",
+                lv: () => "Atkārto pēc manis:",
+                nl: () => "Herhaal na mij:",
+                no: () => "Gjenta etter meg:",
+                pl: () => "Powtórz za mną:",
+                pt: () => "Repita depois de mim:",
+                ru: () => "Повторяй за мной:",
+                sr: () => "Ponovi za mnom:",
+                tr: () => "Benden sonra tekrarla:",
+                uk: () => "Повторюй за мною:",
+                vi: () => "Lặp lại theo tôi:",
+                zh: () => "跟着我重复："
+            };
+
+            if (!translations[lang]) {
+                console.warn(`Language ${lang} not supported, falling back to English`);
+                return translations.en();
+            }
+
+            return translations[lang]();
+        }        
+
         function toggleFullscreen() {
             if (document.fullscreenElement) {
                 document.exitFullscreen();
@@ -215,6 +333,7 @@
             constructor(isRandomSize = true) {
                 super();
                 this.isRandomSize = isRandomSize;
+                this.isFirst = true;
                 const S = document.createElement('div');
                 S.innerHTML = `<div>
                     <label class="block text-sm font-medium mb-2">Quantity Range</label>
@@ -266,7 +385,12 @@
             }
 
             async awaitContinuous() {
-                await Speech.speak(this.currentNumber.toString(), UI.lang());
+                if(this.isFirst){
+                    await Speech.speak(repeatAfterMe(UI.lang()), UI.lang());
+                    await new Promise(r=>setTimeout(r, 800));
+                    this.isFirst = false;
+                }
+                await Speech.speak(numberToSentence(this.currentNumber, UI.lang()), UI.lang());
                 this.timeout = setTimeout(() => this.nextSlide(), UI.slideDuration());
             }
 
@@ -280,7 +404,10 @@
                     if(success) {
                         return this.nextSlide();
                     }
-                    await Speech.speak(this.currentNumber.toString(), L);
+
+                    await Speech.speak(repeatAfterMe(L), L);
+                    await new Promise(r=>setTimeout(r, 800));
+                    await Speech.speak(numberToSentence(this.currentNumber, L), L);
                 }
             }
         }
