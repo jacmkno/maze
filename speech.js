@@ -24,7 +24,7 @@ class Speech {
                 if (speechSynthesis.getVoices().length) {
                     setTimeout(() => {
                         resolve(
-                            Object.keys(Object.fromEntries(speechSynthesis.getVoices().map(l=>[l.lang, 1])))
+                            Object.keys(Object.fromEntries(speechSynthesis.getVoices().map(l=>[l.lang.split(/[^a-z0-9]+/i).slice(0,2).join('-'), 1])))
                         )
                     }, 500);
                 } else {

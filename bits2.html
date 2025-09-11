@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Glen Doman's Method - UI Shell</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script type="text/javascript" src="speech.js?1"></script>
+    <script type="text/javascript" src="speech.js?4"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap" rel="stylesheet">
@@ -132,6 +132,7 @@
             const select = _$('language-select');
             const langs1 = new Set('en,ar,az,cz,dk,de,es,fr,fa,he,hr,hu,id,it,ko,lt,lv,nl,no,pl,pt,ru,sr,tr,uk,vi,zh'.split(','));
             const langs2 = await Speech.getLangs();
+
             const langs = langs2.filter(l=>langs1.has(l.split('-').shift()));
             const names = new Intl.DisplayNames(['en'], { type: 'language' });
             const _default = 'en-US';
